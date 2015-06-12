@@ -1,0 +1,141 @@
+<!--
+To change this template, choose Tools | Templates
+and open the template in the editor.
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> Arrive </title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script type="text/javascript" src="phaser.min.js"></script>
+        
+    </head>
+    <body>
+        <script type="text/javascript">
+            var game = new Phaser.Game(1200, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update});
+    
+            var nave;
+            var astronauta;
+            
+            function preload(){
+                game.load.image('astronauta','../assets/astronautaB.png');
+                game.load.image('nave','../assets/nave.png');
+                game.load.image('fondo','../assets/tierra.jpg');
+            }
+            
+            function create(){
+                game.physics.startSystem(Phaser.Physics.ARCADE); //  Habilitamos la física
+                game.add.sprite(0,0,'fondo'); //Creamos el fondo
+                
+                game.add.text(20, 20, '*************************************************', { fontSize: '40px', fill: '#2E64FE' });
+                game.add.text(20, 50, '* Utilizar las flechas para dirigir la nave *', { fontSize: '40px', fill: '#2E64FE' });
+                game.add.text(20, 100, '*************************************************', { fontSize: '40px', fill: '#2E64FE' });
+                
+                
+                        //Creamos la nave ***********************
+                nave=game.add.sprite(800,600,'nave'); //Creamos la nave
+                game.physics.arcade.enable(nave); //Habilitamos la fisica
+                nave.RADIO=150;
+                nave.MAX_VELOCIDAD = 100;
+                nave.MAX_ROTACION = Math.PI/2;
+                nave.outOfBoundsKill=false;
+                nave.anchor.setTo(0.5,0.5); //Para que el punto donde se dirija sea el centro
+
+                //Creamos el astronauta ******************
+                astronauta=game.add.sprite(200,100,'astronauta');
+                game.physics.arcade.enable(astronauta); //Habilitamos la fisica en el astronauta
+                astronauta.RADIO=150;
+                astronauta.MAX_VELOCIDAD = 100;
+                astronauta.MAX_ROTACION = Math.PI/2;
+                astronauta.outOfBoundsKill=false;
+                astronauta.anchor.setTo(0.5,0.5); //Para que el punto donde se dirija sea el centro
+                
+                cursors = game.input.keyboard.createCursorKeys(); //  declaramos los controles pra mover la nave
+                
+            }
+            
+            function update(){
+                verificarPosicion(nave);
+                verificarPosicion(astronauta);
+                arrive(astronauta,nave);
+                
+                nave.body.velocity.x=0;
+                nave.body.velocity.y=0;
+        
+                if(cursors.up.isDown){ //Se desplaza hacia arriba
+                    nave.body.velocity.y=-150;
+                }
+                if(cursors.down.isDown){ //Se desplaza hacia arriba
+                    nave.body.velocity.y=150;
+                }
+                if(cursors.left.isDown){
+                    nave.body.velocity.x=-150;
+                }
+                if(cursors.right.isDown){
+                    nave.body.velocity.x=150;
+                }
+                
+            }
+            
+            function arrive(objeto,destino){
+                var frenar;
+                var vel;
+                //Obtenemos la distancia entre el objeto y el destino
+                var distancia=Phaser.Math.distance(objeto.position.x,objeto.position.y,destino.position.x,destino.position.y);
+                
+                if(distancia>destino.RADIO){
+                    frenar=1;
+                }
+                else{
+                    frenar=distancia/destino.RADIO; //La disminuimos acorde a lo cercano que este del destino
+                }       
+            
+                var vel=velocidadDeseada(objeto,destino); //Obtenemos la velocidad del vector que es la maxima
+                vel=vel.multiply(frenar,frenar);//La disminuimos en casa de que este dentro del radio
+                vel=steering(vel,objeto.body.velocity); //Obtenemos la steering force
+                cambiarPosicion(objeto,vel); //Movemos el objeto
+                }
+                
+            //Devuelve el vector con la velocidad deseada normalizada
+            function velocidadDeseada (posicion, target) {
+                        var vector = Phaser.Point.subtract(target,posicion); //Obtenemos la velocidad deseada
+                        vector.normalize();	 //La normalizamos
+                        vector.multiply(posicion.MAX_VELOCIDAD,posicion.MAX_VELOCIDAD); //Luego de normalizar multiplicamos por la velocidad maxima
+                        return vector;
+            }
+            
+            //Obtenemos la segunda fuerza que es el steering
+            function steering (velDeseada,velocidad) {
+                    var steering = Phaser.Point.subtract(velDeseada,velocidad);
+                    return steering;
+            }
+
+            function cambiarPosicion (posicion,vector) {
+                    posicion.body.velocity.add(vector.x,vector.y);
+            }
+            
+            //Verifica la posicion de la entidad que entra por parametro, si se sale del juego
+            // Si se va por la izquiera lo manda por la derecha, lo mismo para arriba y por abajo
+            function verificarPosicion (entidad) {
+                        if (entidad.position.x < 0) { //Si se va por la izquiera lo manda a la derecha
+                                entidad.x = game.world.bounds.width/2 ;
+                                entidad.y= game.world.bounds.height/2 ;
+                        }
+                        if (entidad.position.y < 0) { //Si sev a para abjo lo manda arriba
+                                entidad.x = game.world.bounds.width/2 ;
+                                entidad.y= game.world.bounds.height/2 ;
+                        }
+                        if (entidad.position.x > game.world.bounds.width) { //Si se va por la dercha lo manda a la izquierda
+                                entidad.x = game.world.bounds.width/2 ;
+                                entidad.y= game.world.bounds.height/2 ;
+                        }
+                        if (entidad.position.y > game.world.bounds.height) { //Si se va por abajo lo manda por arriba
+                                entidad.x = game.world.bounds.width/2 ;
+                                entidad.y= game.world.bounds.height/2 ;
+                        }
+            
+            }
+
+        </script>
+    </body>
+</html>

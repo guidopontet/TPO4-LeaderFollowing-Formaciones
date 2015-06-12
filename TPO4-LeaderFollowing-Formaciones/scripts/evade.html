@@ -1,0 +1,184 @@
+<!--
+To change this template, choose Tools | Templates
+and open the template in the editor.
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> Evade </title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script type="text/javascript" src="phaser.min.js"></script>
+        
+    </head>
+    <body>
+        <script type="text/javascript">
+            
+    var game = new Phaser.Game(1200, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update});
+    
+    
+    
+    var nave;
+    var cursors;
+    var astronauta;
+   
+    
+    function preload(){
+        game.load.image('astronauta','../assets/astronautaB.png');
+        game.load.image('nave','../assets/nave.png');
+        game.load.image('fondo','../assets/tierra.jpg');
+    }
+    
+    function create(){
+        
+        
+        game.physics.startSystem(Phaser.Physics.ARCADE); //  Habilitamos la física
+        game.add.sprite(0,0,'fondo'); //Creamos el fondo
+        
+        game.add.text(20, 20, '*************************************************', { fontSize: '40px', fill: '#2E64FE' });
+        game.add.text(20, 50, '* Utilizar las flechas para dirigir la nave *', { fontSize: '40px', fill: '#2E64FE' });
+        game.add.text(20, 100, '*************************************************', { fontSize: '40px', fill: '#2E64FE' });
+        
+        //Creamos la nave ***********************
+        nave=game.add.sprite(500,500,'nave'); //Creamos la nave
+        game.physics.arcade.enable(nave); //Habilitamos la fisica
+        //nave.body.velocity.y=-200; //Le damos velocidad
+        //nave.body.collideWorldBounds=true; //Que rebote contra los bordes
+        //nave.body.bounce.y=1; //confiuramos el rebote.
+        nave.body.gravity.y=100;
+        
+        nave.RADIO=100;
+        nave.MAX_VELOCIDAD = 250;
+        nave.MAX_ROTACION = Math.PI/2;
+        nave.outOfBoundsKill=false;
+        nave.anchor.setTo(0.5, 0.5); //Para que el punto donde se dirija sea el centro
+        
+        //Creamos el astronauta ******************
+        astronauta=game.add.sprite(200,200,'astronauta');
+        game.physics.arcade.enable(astronauta); //Habilitamos la fisica en el astronauta
+        //astronauta.body.gravity.y=100;
+        //astronauta.body.collideWorldBounds=true; //para que rebote contra los bordes
+        astronauta.RADIO=100;
+        astronauta.MAX_VELOCIDAD = 50;
+        astronauta.MAX_ROTACION = Math.PI/2;
+        astronauta.outOfBoundsKill=false;
+        astronauta.anchor.setTo(0.5, 0.5); //Para que el punto donde se dirija sea el centro
+        
+
+        cursors = game.input.keyboard.createCursorKeys(); //  declaramos los controles
+        
+    }
+    
+    function update(){
+        verificarPosicion(nave);
+        verificarPosicion(astronauta);
+        nave.angle=apuntar(nave.body.velocity);
+        astronauta.angle=apuntar(astronauta.body.velocity);
+        
+        evade(astronauta, nave);
+        
+        nave.body.velocity.x=0;
+        nave.body.velocity.y=0;
+        
+        if(cursors.up.isDown){ //Se desplaza hacia arriba
+            nave.body.velocity.y=-150;
+        }
+        if(cursors.down.isDown){ //Se desplaza hacia arriba
+            nave.body.velocity.y=150;
+        }
+        if(cursors.left.isDown){
+            nave.body.velocity.x=-150;
+        }
+        if(cursors.right.isDown){
+            nave.body.velocity.x=150;
+        }
+        
+    }
+    
+    //Verifica la posicion de la entidad que entra por parametro, si se sale del juego
+    // Si se va por la izquiera lo manda por la derecha, lo mismo para arriba y por abajo
+    function verificarPosicion (entidad) {
+		if (entidad.position.x < 0) { //Si se va por la izquiera lo manda a la derecha
+                        entidad.x = game.world.bounds.width/2 ;
+                        entidad.y= game.world.bounds.height/2 ;
+                }
+                if (entidad.position.y < 0) { //Si sev a para abjo lo manda arriba
+                        entidad.x = game.world.bounds.width/2 ;
+                        entidad.y= game.world.bounds.height/2 ;
+                }
+                if (entidad.position.x > game.world.bounds.width) { //Si se va por la dercha lo manda a la izquierda
+                        entidad.x = game.world.bounds.width/2 ;
+                        entidad.y= game.world.bounds.height/2 ;
+                }
+                if (entidad.position.y > game.world.bounds.height) { //Si se va por abajo lo manda por arriba
+                        entidad.x = game.world.bounds.width/2 ;
+                        entidad.y= game.world.bounds.height/2 ;
+                }
+            
+    }
+    
+    function evade(perseguidor, perseguido) {
+		var velDeseada = obtenerVector(perseguidor,perseguido.position); //Obtenemos el vector normalizado
+		var distancia = Phaser.Math.distance(0,0,velDeseada.x,velDeseada.y);
+                
+		var vel = Phaser.Math.distance(0,0,perseguidor.body.velocity.x,perseguidor.body.velocity.y);
+		var prediccion;
+                
+                //Esto se hace para mejorar la precision del evade cuando se esta muy cerca entre 
+                //ambos objetos, es decir
+                // el perseguidor y el perseguido. 
+		if (vel <= distancia/perseguidor.MAX_VELOCIDAD) {
+                    //Esto es T=(Distancia/Velocidad Maxima) que basicamente es cuantas actualizaciones
+                    //Hacen falta para que el perseguidor llegue a la posicion del perseguido
+			prediccion = 10;//maxPrediction
+		}
+		else {
+			prediccion = distancia/vel;
+		}
+		var posPredecida = new Phaser.Point(perseguido.position.x,perseguido.position.y);
+                //Ahora multiplico los valores por la prediccion calculada arriba segun la distancia
+		posPredecida = posPredecida.add(perseguido.body.velocity.x*prediccion,perseguido.body.velocity.y*prediccion);
+		flee(perseguidor,posPredecida); //Hacemo un flee para que huya desde la posicion del perseguidor desde la posPredecida
+    }
+    
+    //Devuelve el vector con la velocidad normalizada
+    function obtenerVector (desde, puntoHasta) {
+		var vector = Phaser.Point.subtract(puntoHasta,desde.position); //Obtenemos la velocidad deseada
+		vector.normalize();	 //La normalizamos	
+		return vector;
+    }
+    
+    
+    function flee (posicion,target) {
+		var vel = obtenerVector(posicion,target); //devuelve la velocidad del vector
+		vel.multiply(-1,-1); //La multiplicamos por una, dado que es un flee, por lo que tenemos que
+                //tener en cuenta que flee_desired_velocity = -seek_desired_velocity
+		vel = getVelocidad(vel,posicion.MAX_VELOCIDAD);
+		vel = getFuerza(vel,posicion.body.velocity);
+		aplicarFuerza(posicion,vel);
+	}
+    
+    //Sin esta funcion, el astronauta uhiría con una velocidad superior a la maxima
+    function getVelocidad (vector,magnitud) {
+		vector.multiply(magnitud,magnitud);
+		return vector;
+	}
+	
+    function getFuerza (vector,velocidad) {
+            vector = Phaser.Point.subtract(vector,velocidad);
+            return vector;
+    }
+
+    function aplicarFuerza (posicion,vector) {
+            posicion.body.velocity.add(vector.x,vector.y);
+    }
+
+    function apuntar(vector) {  //Una vez aplicada la fuerza al agente, éste método cambia la orientación del personaje en caso de ser necesario
+        var nuevoAngulo = Math.atan2(vector.x, -vector.y) * 180 / Math.PI;
+        return nuevoAngulo;
+    }
+        
+        
+        
+    </script>
+    </body>
+</html>

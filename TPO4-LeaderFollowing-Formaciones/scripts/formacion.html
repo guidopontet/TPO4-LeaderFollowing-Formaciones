@@ -1,0 +1,233 @@
+<!--
+To change this template, choose Tools | Templates
+and open the template in the editor.
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> Leader Following </title>
+
+        <script src="funciones.js"></script>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script type="text/javascript" src="phaser.min.js"></script>
+
+    </head>
+    <body>
+        <script type="text/javascript">
+            var game = new Phaser.Game(1200, 600, Phaser.AUTO, '', {preload: preload, create: create, update: update/*,render: render*/});
+
+
+
+            var nave;
+            var astronauta;
+            var numeroNaves = 6;
+            var radio = 20;
+            var grupo = [];
+            var distanciaLiderBehind = 20;
+
+
+            function preload() {
+
+                game.load.image('astronauta', '../assets/astronautaB.png');
+                game.load.image('nave', '../assets/nave.png');
+                game.load.image('fondo', '../assets/tierra.jpg');
+                game.load.image('nave2', '../assets/nave2.png');
+                game.load.image('behind', '../assets/behind.png');
+            }
+
+            function create() {
+                game.physics.startSystem(Phaser.Physics.ARCADE); //  Habilitamos la física
+                game.add.sprite(0, 0, 'fondo'); //Creamos el fondo
+
+                game.add.text(20, 20, '*************************************************', {fontSize: '40px', fill: '#2E64FE'});
+                game.add.text(20, 50, '* Utilizar las flechas para dirigir la nave *', {fontSize: '40px', fill: '#2E64FE'});
+                game.add.text(20, 100, '*************************************************', {fontSize: '40px', fill: '#2E64FE'});
+
+                //Creamos la nave líder***********************
+                nave = game.add.sprite(700, 500, 'nave'); //Creamos la nave
+                game.physics.arcade.enable(nave); //Habilitamos la fisica
+                nave.RADIO = radio * 4;
+                nave.MAX_VELOCIDAD = 250;
+                nave.MAX_ROTACION = Math.PI / 2;
+                nave.outOfBoundsKill = false;
+                nave.anchor.setTo(0.5, 0.5); //Para que el punto donde se dirija sea el centro
+
+
+
+                //Creamos las naves subditas de forma aleatorio en la esquina inferior derecha de la pantalla 
+                               
+                for (var i = 0; i < numeroNaves; ++i) {
+                    naveSub = game.add.sprite(nave.body.position.x+(i+2)*30,nave.body.position.y, 'nave2'); //le asignamos posiciones de inicio aleatorias a las nave
+                    game.physics.arcade.enable(naveSub);         //Habilitamos la fisica en la nave
+
+                    naveSub.RADIO = radio/2;                           //El radio de cada una de las naves
+                    naveSub.MAX_VELOCIDAD = 75;
+                    naveSub.NOMBRE = i;                            //Para diferenciar cada nave de las demás
+                    naveSub.anchor.setTo(0.5, 0.5); //Para que el punto donde se dirija sea el centro
+                    naveSub.scale.setTo(0.8);
+
+                    grupo.push(naveSub);                         //Agregamoslas naves creadas al grupo de naves, por ahora innecesario
+                }
+
+
+                cursors = game.input.keyboard.createCursorKeys(); //  declaramos los controles pra mover la nave                
+            }
+            
+            function calcularPuntoBehind(objetivo){
+                var behind;
+                var temp;
+                var tv = objetivo.body.velocity.clone();
+
+                tv.normalize();
+                tv.x *= distanciaLiderBehind;
+                tv.y *= distanciaLiderBehind;
+
+                //Calculamos el punto behind
+                tv.x *= -1;
+                tv.y *= -1;
+
+                temp=objetivo.body.position.clone();
+                behind = temp.add(tv.x, tv.y);
+                return behind;
+            }
+            
+            function update() {
+
+                teclado(); //Para controlar la nave con las flechas
+                verificarPosicion(nave); //para que la nave pueda salir de la pantalla
+                nave.angle = apuntar(nave.body.velocity);    //Orienta al personaje después de haber cambiado su velocidad
+                var fuerza;
+                var punto;
+                for (var i = 0; i < numeroNaves; ++i) {
+                    if(i==0){ //Si es la primera nave hace un eader following a la nave lider   
+                        fuerza = followLeader(grupo[i]);
+                        punto=calcularPuntoBehind(nave);
+                        var fuerzaArrive=arrive(grupo[i],punto);
+                        fuerza.add(fuerzaArrive.x,fuerzaArrive.y);
+                        fuerza = truncar(fuerza, grupo[i].MAX_VELOCIDAD);
+                        cambiarPosicion(grupo[i], fuerza);
+                        grupo[i].angle = apuntar(grupo[i].body.velocity); //Apuntamos la nave segun la velocidad   
+                    }
+                    else{
+                        punto=calcularPuntoBehind(grupo[i-1]);
+                        fuerza=arrive(grupo[i],punto);
+                        cambiarPosicion(grupo[i], fuerza);
+                        grupo[i].angle = apuntar(grupo[i].body.velocity); //Apuntamos la nave segun la velocidad
+                    }
+
+                }
+
+            }   
+        
+            
+
+            function followLeader(objeto) {  //la nave es el lider
+                var behind;
+                var ahead;
+
+                var fuerza = new Phaser.Point(0, 0);
+                var tv = nave.body.velocity.clone();
+
+                //Calculamos el punto ahead
+                tv.normalize();
+                tv.x *= distanciaLiderBehind;
+                tv.y *= distanciaLiderBehind;
+
+                ahead = nave.body.sprite.position.add(tv.x, tv.y);
+
+                //Calculamos el punto behind
+                tv.x *= -1;
+                tv.y *= -1;
+
+                behind = nave.body.sprite.position.add(tv.x, tv.y);
+
+                
+                if (estaEnLaVisionDelLider(objeto, ahead)) {
+                    var fuerzaEvadir = evadir(objeto, nave);
+                    fuerza.add(fuerzaEvadir.x, fuerzaEvadir.y);
+                }
+
+                //Creamos la fuerza para arrivar al punto behind
+
+                var fuerzaArrive = arrive(objeto, behind);
+                fuerza.add(fuerzaArrive.x, fuerzaArrive.y);
+                
+                
+                var fuerzaSeparation = separation(objeto, grupo);
+                fuerza.add(fuerzaSeparation.x, fuerzaSeparation.y);
+                
+
+                return fuerza;
+            }
+
+            function separation(naveSub, resto) {
+                var v = new Phaser.Point(0, 0);                                       //Este es el vector de fuerza que se aplicará al astronauta 
+                var vecinos = 0;                                                      //Cantidad de vecinos dentro del radio del astronauta
+
+                for (var i = 0; i < numeroNaves; ++i) {
+                    if (naveSub.NOMBRE != resto[i].NOMBRE) {
+                        var posnaveSub = naveSub.body.sprite.position;
+                        var posOtro = resto[i].body.sprite.position;
+
+                        var distancia = Phaser.Math.distance(posnaveSub.x, posnaveSub.y, posOtro.x, posOtro.y);   //Obtenemos la distancia entre la posicion de nuestro agente y del otro agente, como dice el algoritmo
+
+                        if ((distancia > 0) && (distancia < naveSub.RADIO)) {                //Si el otro astronauta está dentro del radio de "nuestro" astronauta..
+                            var diferencia = Phaser.Point.subtract(posOtro, posnaveSub);
+
+                            v.x += diferencia.x;
+                            v.y += diferencia.y;
+                            vecinos++;
+                        }
+
+                    }
+                }
+
+                if (vecinos > 0) {
+                    v.x /= vecinos;
+                    v.y /= vecinos;
+
+                    v.x *= -1;
+                    v.y *= -1;
+
+
+                }
+                v.normalize();
+
+                v.x *= radio;
+                v.y *= radio;
+
+                return v;
+
+            }
+
+            function estaEnLaVisionDelLider(objeto, ahead) {
+                var distanciaAhead_Objeto = Phaser.Math.distance(ahead.x, ahead.y, objeto.x, objeto.y);
+                var distanciaNave_Objeto = Phaser.Math.distance(nave.body.sprite.position.x, nave.body.sprite.position.y, objeto.x, objeto.y);
+
+                return (distanciaAhead_Objeto <= nave.RADIO || distanciaNave_Objeto <= nave.RADIO);
+            }
+
+
+            function arrive(objeto, destino) {
+                var frenar;
+                var vel;
+
+                //Obtenemos la distancia entre el objeto y el destino
+                var distancia = Phaser.Math.distance(objeto.position.x, objeto.position.y, destino.x, destino.y);
+                if (distancia > nave.RADIO) {
+                    frenar = 1;
+                }
+                else {
+                    frenar = distancia / nave.RADIO; //La disminuimos acorde a lo cercano que este del destino
+                }
+
+                var vel = velocidadDeseada(objeto, destino); //Obtenemos la velocidad del vector que es la maxima
+                vel = vel.multiply(frenar, frenar);//La disminuimos en casa de que este dentro del radio
+                vel = steering(vel, objeto.body.velocity); //Obtenemos la steering force
+
+                return vel;
+            }
+            
+        </script>
+    </body>
+</html>

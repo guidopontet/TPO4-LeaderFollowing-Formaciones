@@ -1,0 +1,79 @@
+<!--
+To change this template, choose Tools | Templates
+and open the template in the editor.
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> Seek </title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script type="text/javascript" src="phaser.min.js"></script>
+        
+    </head>
+    <body>
+        <script type="text/javascript">
+            var game = new Phaser.Game(1200, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update});
+    
+            var nave;
+            var astronauta;
+            
+            function preload(){
+                game.load.image('astronauta','../assets/astronautaB.png');
+                game.load.image('nave','../assets/nave.png');
+                game.load.image('fondo','../assets/tierra.jpg');
+            }
+            
+            function create(){
+                game.physics.startSystem(Phaser.Physics.ARCADE); //  Habilitamos la física
+                game.add.sprite(0,0,'fondo'); //Creamos el fondo
+                
+                //Creamos la nave
+                nave=game.add.sprite(800,550,'nave'); //Creamos la nave
+                game.physics.arcade.enable(nave); //Habilitamos la fisica
+                //nave.RADIO=100;
+                nave.MAX_VELOCIDAD = 100;
+                nave.MAX_ROTACION = Math.PI/2;
+                nave.outOfBoundsKill=false; //Para que no lo mate al salir de juego
+                nave.anchor.setTo(0.5,0.5); //Para que el punto donde se dirija sea el centro
+                
+                //Creamos el astronauta
+                astronauta=game.add.sprite(200,100,'astronauta');
+                game.physics.arcade.enable(astronauta); //Habilitamos la fisica en el astronauta
+                //astronauta.RADIO=100;
+                astronauta.MAX_VELOCIDAD = 100;
+                astronauta.MAX_ROTACION = Math.PI/2;
+                astronauta.outOfBoundsKill=false;
+                astronauta.anchor.setTo(0.5,0.5);
+            }
+            
+            function update(){
+                seek(nave,astronauta);
+            }
+            
+            function seek (vehiculo,destino) {
+		var vel = velocidadDeseada(vehiculo,destino); //Obtenemos la velocidad deseada
+		vel = steering(vel,vehiculo.body.velocity); //Obtenermos el steering
+		cambiarPosicion(vehiculo,vel);
+            }
+            
+            //Devuelve el vector con la velocidad deseada normalizada
+            function velocidadDeseada (posicion, target) {
+                        var vector = Phaser.Point.subtract(target,posicion); //Obtenemos la velocidad deseada
+                        vector.normalize();	 //La normalizamos
+                        vector.multiply(posicion.MAX_VELOCIDAD,posicion.MAX_VELOCIDAD); //Luego de normalizar multiplicamos por la velocidad maxima
+                        return vector;
+            }
+            
+            //Obtenemos la segunda fuerza que es el steering
+            function steering (velDeseada,velocidad) {
+                    var steering = Phaser.Point.subtract(velDeseada,velocidad);
+                    return steering;
+            }
+
+            function cambiarPosicion (posicion,vector) {
+                    posicion.body.velocity.add(vector.x,vector.y);
+            }
+        </script>
+        
+    </body>
+</html>

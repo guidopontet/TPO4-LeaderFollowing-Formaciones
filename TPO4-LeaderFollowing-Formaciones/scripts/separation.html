@@ -1,0 +1,146 @@
+<!--
+To change this template, choose Tools | Templates
+and open the template in the editor.
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> Separation </title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script type="text/javascript" src="phaser.min.js"></script>
+        
+    </head>
+    <body>
+        <script type="text/javascript">
+            var game = new Phaser.Game(1600, 1000, Phaser.AUTO, '', { preload: preload, create: create, update: update/*, render: render*/ });
+            
+            var numeroAstronautas=20;
+            var radio=200;
+            var grupo= [];
+            
+            function preload(){
+                game.load.image('astronauta','../assets/astronautaB.png');
+                
+                game.load.image('fondo','../assets/tierra.jpg');
+            }
+            
+            function create(){
+                game.physics.startSystem(Phaser.Physics.ARCADE); //  Habilitamos la física
+                game.add.sprite(0,0,'fondo'); //Creamos el fondo
+        
+                //Creamos el grupo de astronautas que se separan unos de otros  ******************
+                
+                for (var i=0;i<numeroAstronautas;++i){
+                    //var astronauta=game.add.sprite(game.world.centerX+i*10,game.world.centerY+i*10,'astronauta');
+                    var astronauta=game.add.sprite(Math.random()*game.world.bounds.width,Math.random()*game.world.bounds.height,'astronauta'); //le asignamos posiciones de inicio aleatorias a los astronautas
+                    game.physics.arcade.enable(astronauta);         //Habilitamos la fisica en el astronauta
+                    
+                    astronauta.body.velocity.x= 0*10;   //Le asignamos velocidades aleatorias a los astronautas
+                    astronauta.body.velocity.y= -1*10;   
+                    
+                    astronauta.RADIO=radio;                           //El radio de cada uno de los astronautas
+                    astronauta.MAX_VELOCIDAD = 50;              
+                    astronauta.NOMBRE=i;                            //Para diferenciar cada astronauta de los demás
+                    
+                    
+                    grupo.push(astronauta);                         //Agregamos el astronauta creado al grupo de astronautas
+                }
+            }
+            
+            function update(){
+                for (var i=0;i<numeroAstronautas;++i){
+                    actualizarComportamientoAstronauta(grupo[i],grupo);            //Para cada astronauta, se ejecutará su comportamiento
+                    grupo[i].angle=apuntar(grupo[i].body.velocity);
+                }
+            }
+            
+            function actualizarComportamientoAstronauta(astronauta,resto){
+                var v= new Phaser.Point(0,0);                                       //Este es el vector de fuerza que se aplicará al astronauta 
+                var vecinos=0;                                                      //Cantidad de vecinos dentro del radio del astronauta
+                
+                for (var i=0;i<numeroAstronautas;++i){          
+                    if(astronauta.NOMBRE != resto[i].NOMBRE){           
+                        var posAstronauta=astronauta.body.sprite.position;
+                        var posOtro=resto[i].body.sprite.position;
+                        
+                        var distancia= Phaser.Math.distance(posAstronauta.x,posAstronauta.y,posOtro.x,posOtro.y);   //Obtenemos la distancia entre la posicion de nuestro agente y del otro agente, como dice el algoritmo
+                        
+                        if((distancia>0) && (distancia < astronauta.RADIO)){                //Si el otro astronauta está dentro del radio de "nuestro" astronauta..
+                            var diferencia= Phaser.Point.subtract(posOtro,posAstronauta);
+                           
+                            v.x+=diferencia.x;      
+                            v.y+=diferencia.y;
+                            vecinos++;
+                        }
+                        
+                    }
+                }
+                
+                if(vecinos>0){
+                    v.x/=vecinos;
+                    v.y/=vecinos;
+                    
+                    v.x*=-1;
+                    v.y*=-1;
+                    
+                    v.normalize();
+                }
+                
+             
+                v=truncar(v,astronauta.MAX_VELOCIDAD);                   //limitamos a la máxima velocidad
+                
+                astronauta.body.velocity.add(v.x,v.y);                   //Aplicamos la fuerza
+                
+                astronauta.angle = apuntar(astronauta.body.velocity);    //Orienta al personaje después de haber cambiado su velocidad
+                
+                verificarDentroLimites(astronauta.position,astronauta.game.world);  //Si se va dentro de los limites, este metodo inserta al agente dentro
+                
+            }
+            
+            function truncar (vector , max){  //Éste metodo sirve para limitar la fuerza aplicada de acuerdo a la máxima velocidad que soporta el agente
+                if(vector.getMagnitude() > max) {
+                    vector.normalize();
+                    vector.multiply(max,max);
+                }
+                return vector;
+            }
+            
+            function apuntar(vector) {  //Una vez aplicada la fuerza al agente, éste método cambia la orientación del personaje en caso de ser necesario
+                var nuevoAngulo = Math.atan2(vector.x, -vector.y) * 180 / Math.PI;
+                return nuevoAngulo;
+            }
+            
+            function verificarDentroLimites(vector, bounds) {  //Funcion que permite que el agente que está en movimiento no se vaya fuera de los límites
+                if (vector.x < 0) {
+                    vector.x = bounds.width;
+                }
+                else if (vector.x > bounds.width) {
+                    vector.x = 0;
+                }
+                
+                if (vector.y < 0) {
+                    vector.y = bounds.height;
+                }
+                else if (vector.y > bounds.height) {
+                    vector.y = 0
+                }
+            }
+            
+            function render(){  //esto lo hicimos para mostrar el radio del agente (activar en la presentación del trabajo)
+                for (var i=0;i<numeroAstronautas;++i){
+                    var circulo=new Phaser.Circle(grupo[i].position.x,grupo[i].position.y,grupo[i].RADIO);
+                    game.debug.geom(circulo,false);
+                }
+            }
+            
+            function setearRadio(nuevoRadio){
+                for (var i=0;i<numeroAstronautas;++i){
+                    var astronauta=grupo[i];
+                    astronauta.RADIO=nuevoRadio;
+                }
+            }
+            
+            
+        </script>
+    </body>
+</html>
